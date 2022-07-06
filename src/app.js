@@ -8,7 +8,7 @@ const is = require('electron-is');
 if (require('./lib/startup')) return
 
 // Electron modules
-const { app } = electron;
+const { app, Menu, Tray } = electron;
 const { BrowserWindow } = electron;
 const { ipcMain } = electron;
 const { session } = electron;
@@ -67,11 +67,20 @@ function createTorrentWindow() {
 
     torrentWindow.loadURL(`file://${__dirname}/index.html`);
 
+    torrentWindow.on('minimize', (event) => {
+        event.preventDefault();
+        torrentWindow.hide();
+    });
+
     // Save window size when closing
-    torrentWindow.on('close', () => {
-        config.put('windowsize', torrentWindow.getBounds())
-        config.write();
-    })
+    torrentWindow.on('close', (event) => {
+      if (!app.isQuiting) {
+          event.preventDefault();
+          torrentWindow.hide();
+      }
+      config.put('windowsize', torrentWindow.getBounds())
+      config.write();
+    });
 
     // Emitted when the window is closed.
     torrentWindow.on('closed', () => {
@@ -199,4 +208,20 @@ app.on('activate', () => {
     if(torrentWindow === null) {
         createTorrentWindow();
     }
+});
+
+// System's tray icon with menu
+let tray = null;
+app.whenReady().then(() => {
+    tray = new Tray(getApplicationIcon());
+    const contextMenu = Menu.buildFromTemplate([
+      { label: 'Show Electorrent', click: () => torrentWindow.show() },
+      { type: 'separator' },
+      { label: 'Quit', click: () => {
+          app.isQuiting = true;
+          app.quit();
+      } }
+    ]);
+    tray.setToolTip('Electorrent');
+    tray.setContextMenu(contextMenu);
 });
